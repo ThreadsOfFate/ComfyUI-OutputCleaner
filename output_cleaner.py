@@ -36,8 +36,8 @@ class OutputCleaner:
 
     CATEGORY = "utils/file_management"
     FUNCTION = "run"
-    RETURN_TYPES = ("*", "STRING")
-    RETURN_NAMES = ("passthrough", "log")
+    RETURN_TYPES = ("*",)
+    RETURN_NAMES = ("output",)
 
     @classmethod
     def INPUT_TYPES(cls):
@@ -68,7 +68,7 @@ class OutputCleaner:
                 }),
             },
             "optional": {
-                "any_input": ("*", {
+                "anything": ("*", {
                     "tooltip": "Passthrough — wire any node output here; the value is forwarded unchanged.",
                 }),
             },
@@ -76,7 +76,6 @@ class OutputCleaner:
 
     def run(self, path: str, delete_mode: str, dry_run: bool, any_input=None):
         output_dir = folder_paths.get_output_directory()
-        log_lines = []
         prefix = "[DRY RUN] " if dry_run else ""
 
         # ── resolve target ────────────────────────────────────────────────────
@@ -90,21 +89,20 @@ class OutputCleaner:
                 f"  Tried      : {os.path.join(output_dir, path.strip())!r}"
             )
             logger.error(msg)
-            return (any_input, msg)
+            return any_input
 
         # ── safety: keep the output root itself ───────────────────────────────
-        if os.path.realpath(resolved) == os.path.realpath(output_dir):
-            msg = "ERROR: Refusing to delete the ComfyUI output root directory."
-            logger.error(msg)
-            return (any_input, msg)
+        if os.path.realpath(resolved) == os.path.realpath(output_dir):            
+            logger.error("ERROR: Refusing to delete the ComfyUI output root directory.")
+            return any_input
 
         # ── detect what the target actually is ────────────────────────────────
         is_dir  = os.path.isdir(resolved)
         is_file = os.path.isfile(resolved)
 
-        log_lines.append(f"{prefix}Target   : {resolved}")
-        log_lines.append(f"Type     : {'directory' if is_dir else 'file'}")
-        log_lines.append(f"Mode     : {delete_mode}")
+        logger.info(f"{prefix}Target   : {resolved}")
+        logger.info(f"Type     : {'directory' if is_dir else 'file'}")
+        logger.info(f"Mode     : {delete_mode}")
 
         # ── validate mode vs target type ──────────────────────────────────────
         if is_file and delete_mode == "folder_and_contents":
@@ -114,7 +112,7 @@ class OutputCleaner:
                 f"  Switch to delete_mode='file_only' or point at a directory."
             )
             logger.error(msg)
-            return (any_input, msg)
+            return any_input
 
         if is_dir and delete_mode == "file_only":
             msg = (
@@ -123,40 +121,20 @@ class OutputCleaner:
                 f"  Switch to delete_mode='folder_and_contents' to delete a directory."
             )
             logger.error(msg)
-            return (any_input, msg)
-
-        # ── enumerate what will be affected ───────────────────────────────────
-        if is_dir:
-            items = []
-            for root, dirs, files in os.walk(resolved):
-                for f in files:
-                    items.append(os.path.join(root, f))
-            log_lines.append(f"Contains : {len(items)} file(s)")
-            for item in items:
-                log_lines.append(f"  - {item}")
-        else:
-            size = os.path.getsize(resolved)
-            log_lines.append(f"Size     : {size:,} bytes")
+            return any_input
 
         # ── execute (or skip if dry_run) ──────────────────────────────────────
         if dry_run:
-            log_lines.append("")
-            log_lines.append("No files were deleted. Set dry_run=False to execute.")
-            log = "\n".join(log_lines)
-            logger.warning(log)
+            logger.warning("No files were deleted. Set dry_run=False to execute.")
         else:
             try:
                 if is_file:
                     os.remove(resolved)
-                    log_lines.append("Result   : File deleted successfully.")
+                    logger.info("Result   : File deleted successfully.")
                 elif is_dir:
                     shutil.rmtree(resolved)
-                    log_lines.append("Result   : Directory and all contents deleted successfully.")
-                log = "\n".join(log_lines)
-                logger.info(log)
+                    logger.info("Result   : Directory and all contents deleted successfully.")
             except Exception as e:
-                log_lines.append(f"Result   : ERROR during deletion — {e}")
-                log = "\n".join(log_lines)
-                logger.error(log)
+                logger.error(f"Result   : ERROR during deletion — {e}")
 
-        return (any_input, log)
+        return any_input

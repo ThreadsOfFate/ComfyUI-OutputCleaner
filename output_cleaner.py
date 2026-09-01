@@ -43,6 +43,9 @@ class OutputCleaner:
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "anything": ("*", {
+                    "tooltip": "Passthrough — wire any node output here; the value is forwarded unchanged.",
+                }),
                 "path": ("STRING", {
                     "default": "subfolder_name",
                     "multiline": False,
@@ -66,12 +69,7 @@ class OutputCleaner:
                         "Always run with dry_run=True first to verify the target."
                     ),
                 }),
-            },
-            "optional": {
-                "anything": ("*", {
-                    "tooltip": "Passthrough — wire any node output here; the value is forwarded unchanged.",
-                }),
-            },
+            },            
         }
 
     def run(self, path: str, delete_mode: str, dry_run: bool, any_input=None):
